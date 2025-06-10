@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connections Grid</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .tile {
+            background-color: #efefe6;
+            border: 2px solid #d3d3d3;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            aspect-ratio: 1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .tile:hover {
+            background-color: #e8e8e0;
+            border-color: #999;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .tile.selected {
+            background-color: #5a594e;
+            border-color: #5a594e;
+            color: white;
+        }
+
+        .tile.solved {
+            pointer-events: none;
+            cursor: default;
+        }
+
+        .solved-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            color: white;
+        }
+
+        .solved-group.green {
+            background-color: #6aaa64;
+        }
+
+        .solved-group.yellow {
+            background-color: #c9b458;
+        }
+
+        .solved-group.blue {
+            background-color: #6cabf0;
+        }
+
+        .solved-group.purple {
+            background-color: #ba81c5;
+        }
+
+        .solved-category {
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            opacity: 0.9;
+        }
+
+        .solved-words {
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .feedback {
+            text-align: center;
+            margin: 15px 0;
+            font-weight: 600;
+            min-height: 20px;
+        }
+
+        .feedback.error {
+            color: #d73502;
+        }
+
+        .feedback.success {
+            color: #6aaa64;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Connections</h1>
+        <div id="solved-groups"></div>
+        <div id="feedback" class="feedback"></div>
+        <div class="grid">
+            <div class="tile">Maastricht</div>
+            <div class="tile">Lola</div>
+            <div class="tile">Bergwegen</div>
+            <div class="tile">Kaas</div>
+            <div class="tile">York</div>
+            <div class="tile">Jona</div>
+            <div class="tile">Straatsburg</div>
+            <div class="tile">Nijmegen</div>
+            <div class="tile">Kwark</div>
+            <div class="tile">Barcelona</div>
+            <div class="tile">Noah</div>
+            <div class="tile">Ratten</div>
+            <div class="tile">Sete</div>
+            <div class="tile">Witek</div>
+            <div class="tile">Kanne</div>
+            <div class="tile">Leiden</div>
+        </div>
+    </div>
+
+    <script>
+        // Game data
+        const solutions = [
+            {
+                words: ['Jona', 'Witek', 'Noah', 'Lola'],
+                category: 'wezens die Bibi\'s liefde ontvangen',
+                color: 'green',
+                difficulty: 1
+            },
+            {
+                words: ['Leiden', 'Nijmegen', 'Kanne', 'Maastricht'],
+                category: 'plaatsen waar Bibi heeft gewoond',
+                color: 'yellow',
+                difficulty: 2
+            },
+            {
+                words: ['Barcelona', 'Sete', 'York', 'Straatsburg'],
+                category: 'plaatsen die Bibi bezocht heeft met Witek',
+                color: 'blue',
+                difficulty: 3
+            },
+            {
+                words: ['Kaas', 'Kwark', 'Bergwegen', 'Ratten'],
+                category: 'dingen die Bibi haat',
+                color: 'purple',
+                difficulty: 4
+            }
+        ];
+
+        let solvedGroups = [];
+        let selectedTiles = [];
+        let mistakes = 0;
+        const maxMistakes = 4;
+
+        // Shuffle array function
+        function shuffle(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Get all words and shuffle them
+        const allWords = solutions.flatMap(solution => solution.words);
+        const shuffledWords = shuffle(allWords);
+
+        // Create grid
+        function createGrid() {
+            const grid = document.querySelector('.grid');
+            grid.innerHTML = '';
+            
+            shuffledWords.forEach(word => {
+                if (!isWordSolved(word)) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.textContent = word;
+                    tile.addEventListener('click', () => selectTile(tile, word));
+                    grid.appendChild(tile);
+                }
+            });
+        }
+
+        // Check if word is already solved
+        function isWordSolved(word) {
+            return solvedGroups.some(group => group.words.includes(word));
+        }
+
+        // Select/deselect tile
+        function selectTile(tile, word) {
+            if (selectedTiles.includes(word)) {
+                // Deselect
+                selectedTiles = selectedTiles.filter(w => w !== word);
+                tile.classList.remove('selected');
+            } else if (selectedTiles.length < 4) {
+                // Select
+                selectedTiles.push(word);
+                tile.classList.add('selected');
+            }
+
+            // Check for solution when 4 tiles selected
+            if (selectedTiles.length === 4) {
+                setTimeout(checkSolution, 100);
+            }
+
+            updateFeedback();
+        }
+
+        // Check if selected tiles form a solution
+        function checkSolution() {
+            const solution = solutions.find(sol => 
+                sol.words.every(word => selectedTiles.includes(word)) &&
+                selectedTiles.every(word => sol.words.includes(word))
+            );
+
+            if (solution) {
+                // Correct solution
+                solvedGroups.push(solution);
+                showSolvedGroup(solution);
+                selectedTiles = [];
+                createGrid();
+                
+                if (solvedGroups.length === 4) {
+                    showFeedback('Gefeliciteerd! Je hebt alle groepen gevonden! 🎉', 'success');
+                } else {
+                    showFeedback('Correct! Goed gedaan! ✨', 'success');
+                }
+            } else {
+                // Wrong solution
+                mistakes++;
+                selectedTiles = [];
+                document.querySelectorAll('.tile').forEach(tile => {
+                    tile.classList.remove('selected');
+                });
+                
+                if (mistakes >= maxMistakes) {
+                    showFeedback('Game over! Te veel fouten gemaakt.', 'error');
+                } else {
+                    showFeedback(`Niet correct. ${maxMistakes - mistakes} pogingen over.`, 'error');
+                }
+            }
+        }
+
+        // Show solved group
+        function showSolvedGroup(solution) {
+            const solvedGroupsContainer = document.getElementById('solved-groups');
+            const groupDiv = document.createElement('div');
+            groupDiv.className = `solved-group ${solution.color}`;
+            
+            groupDiv.innerHTML = `
+                <div>
+                    <div class="solved-category">${solution.category}</div>
+                    <div class="solved-words">${solution.words.join(', ')}</div>
+                </div>
+            `;
+            
+            solvedGroupsContainer.appendChild(groupDiv);
+        }
+
+        // Update feedback
+        function updateFeedback() {
+            const feedback = document.getElementById('feedback');
+            if (selectedTiles.length === 0) {
+                feedback.textContent = '';
+            } else {
+                feedback.textContent = `${selectedTiles.length}/4 geselecteerd`;
+                feedback.className = 'feedback';
+            }
+        }
+
+        // Show feedback message
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = message;
+            feedback.className = `feedback ${type}`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    feedback.textContent = '';
+                    feedback.className = 'feedback';
+                }, 2000);
+            }
+        }
+
+        // Initialize game
+        createGrid();
+    </script>
+</body>
+</html>
